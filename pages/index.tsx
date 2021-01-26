@@ -5,11 +5,25 @@ import Intro from '../components/intro'
 import Layout from '../components/layout'
 import { getAllPosts } from '../lib/api'
 import Head from 'next/head'
+import { usePlugin } from 'tinacms'
 import { CMS_NAME } from '../lib/constants'
+import { useGithubJsonForm } from 'react-tinacms-github'
+import { getGithubPreviewProps, parseJson } from 'next-tinacms-github'
 
-export default function Index({ allPosts }) {
+export default function Index({ file, allPosts }) {
+  const formOptions = {
+    label: 'Home Page',
+    fields: [
+      { name: 'title', component: 'text' },
+      { name: 'subtitle', component: 'text' },
+    ]
+  }
+  const [ data, form ] = useGithubJsonForm(file, formOptions)
+  usePlugin(form)
+
   const heroPost = allPosts[0]
   const morePosts = allPosts.slice(1)
+
   return (
     <>
       <Layout>
@@ -17,7 +31,7 @@ export default function Index({ allPosts }) {
           <title>Next.js Blog Example with {CMS_NAME}</title>
         </Head>
         <Container>
-          <Intro />
+          <Intro content={ data } />
           {heroPost && (
             <HeroPost
               title={heroPost.title}
@@ -35,7 +49,7 @@ export default function Index({ allPosts }) {
   )
 }
 
-export async function getStaticProps() {
+export async function getStaticProps({ preview, previewData }) {
   const allPosts = getAllPosts([
     'title',
     'date',
@@ -45,7 +59,33 @@ export async function getStaticProps() {
     'excerpt',
   ])
 
+  if (preview) {
+    const content = await getGithubPreviewProps({
+      ...previewData,
+      fileRelativePath: '_content/home.json',
+      data: (await import('../_content/home.json')).default,
+    })
+
+    console.log({ content })
+
+    return {
+      props: {
+        ...content.props,
+        allPosts,
+      }
+    }
+  }
+
   return {
-    props: { allPosts },
+    props: {
+      sourceProvider: null,
+      error: null,
+      preview: false,
+      file: {
+        fileRelativePath: '_content/home.json',
+        data: (await import('../_content/home.json')).default,
+      },
+      allPosts
+    },
   }
 }
